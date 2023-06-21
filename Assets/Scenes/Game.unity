@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.18028331, g: 0.2257133, b: 0.3069217, a: 1}
+  m_IndirectSpecularColor: {r: 0.18028378, g: 0.22571412, b: 0.30692285, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -326,14 +326,14 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 76891761}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 1.05}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalRotation: {x: -0.08315603, y: 0, z: 0, w: 0.99653655}
+  m_LocalPosition: {x: 0, y: -0.431, z: 2.43}
+  m_LocalScale: {x: 1, y: 1, z: 7.23}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 4
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: -9.54, y: 0, z: 0}
 --- !u!1 &506281958
 GameObject:
   m_ObjectHideFlags: 0
@@ -2573,7 +2573,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7128785000286540495}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: -1.28}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2771,7 +2771,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   stepRay: {fileID: 728147993}
-  isGrounded: 1
+  isGrounded: 0
   walkSpeed: 1.5
   runSpeed: 2
   jumpPower: 5
@@ -2779,3 +2779,4 @@ MonoBehaviour:
   stepOffset: 0.3
   slopeLimit: 45
   slopeDistance: 1
+  colliderRadius: 0

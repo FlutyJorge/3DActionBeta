@@ -18,6 +18,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] float stepOffset;
     [SerializeField] float slopeLimit;
     [SerializeField] float slopeDistance;
+    [SerializeField] float colliderRadius;
 
     private float horizontal;
     private float vertical;
@@ -93,7 +94,31 @@ public class PlayerController : MonoBehaviour
 
     private void FixedUpdate()
     {
-        //
+        //キャラクターの移動をさせる処理
         rb.MovePosition(transform.position + velocity * Time.fixedDeltaTime);
+        Vector3 moveForward = transform.forward * vertical + transform.right * horizontal;
+        velocity = moveForward * walkSpeed + new Vector3(0, velocity.y, 0);
+
+        if (moveForward != Vector3.zero)
+        {
+            transform.rotation = Quaternion.LookRotation(moveForward);
+        }
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (Physics.CheckSphere(transform.position, colliderRadius, LayerMask.GetMask("Ground")))
+        {
+            isGrounded = true;
+            velocity.y = 0;
+        }
+    }
+
+    private void OnCollisionExit(Collision collision)
+    {
+        if (collision.gameObject.layer != LayerMask.GetMask("Ground"))
+        {
+            isGrounded = false;
+        }
     }
 }

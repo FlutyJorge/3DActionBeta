@@ -49,10 +49,51 @@ public class PlayerController : MonoBehaviour
             //方向キーが推されている時
             if (input.magnitude > 0)
             {
-                Debug.DrawLine(transform.position + new Vector3(0, stepOffset, 0), transform.position + new Vector3(0, stepOffset, 0) + transform.forward * slopeDistance, Color.green);
+                Vector3 lineStartPos = transform.position + new Vector3(0, stepOffset, 0);
+                Vector3 lineEndPos = lineStartPos + transform.forward * slopeDistance;
+                Debug.DrawLine(lineStartPos, lineEndPos, Color.green);
 
-                
+                //ステップ用のRayが地面に接触
+                Vector3 start = stepRay.position;
+                Vector3 end = start + stepRay.forward * stepDistance;
+                if (Physics.Linecast(start, end, out RaycastHit stepHit, LayerMask.GetMask("Ground")))
+                {
+                    Debug.DrawLine(start, end, Color.green);
+                    Debug.Log(stepHit.normal);
+                    //進行方向の地面の角度が指定以下、または登れる段差より下だった場合の移動処理
+                    if (Vector3.Angle(transform.up, stepHit.normal) <= slopeLimit
+                        || (Vector3.Angle(transform.up, stepHit.normal) > slopeLimit
+                        && !Physics.Linecast(lineStartPos, lineEndPos, LayerMask.GetMask("Ground"))))
+                    {
+                        velocity = new Vector3(0, (Quaternion.FromToRotation(Vector3.up, stepHit.normal) * transform.forward * walkSpeed).y, 0) + transform.forward * walkSpeed;
+                        Debug.Log(Vector3.Angle(transform.up, stepHit.normal));
+                    }
+                    else
+                    {
+                        velocity += transform.forward * walkSpeed;
+                    }
+
+                    Debug.Log(Vector3.Angle(Vector3.up, stepHit.normal));
+                }
+                //地面に接触していない場合
+                else
+                {
+                    velocity += transform.forward * walkSpeed;
+                }
+            }
+
+            //ジャンプ処理
+            if (Input.GetButtonDown("Jump"))
+            {
+                isGrounded = false;
+                velocity.y += jumpPower;
             }
         }
+    }
+
+    private void FixedUpdate()
+    {
+        //
+        rb.MovePosition(transform.position + velocity * Time.fixedDeltaTime);
     }
 }

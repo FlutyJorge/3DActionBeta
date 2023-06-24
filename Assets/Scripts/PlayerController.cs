@@ -7,10 +7,11 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
     [SerializeField] Transform stepRay;
+    [SerializeField] GroundChecker groundChecker;
 
     [Space(10)]
     [Header("パラメータ")]
-    [SerializeField] bool isGrounded;
+    //[SerializeField] bool isGrounded;
     [SerializeField] float walkSpeed;
     [SerializeField] float runSpeed;
     [SerializeField] float jumpPower;
@@ -19,106 +20,121 @@ public class PlayerController : MonoBehaviour
     [SerializeField] float slopeLimit;
     [SerializeField] float slopeDistance;
     [SerializeField] float colliderRadius;
+    [SerializeField] float maxSpeed;
+    [SerializeField] float stepSmooth;
+    [SerializeField] float rotationSpeed;
 
     private float horizontal;
     private float vertical;
     private Animator anim;
     private Vector3 velocity;
+    private Vector3 yVelocity;
     private Vector3 input;
+    private Quaternion targetRotation;
     private Rigidbody rb;
-    private int layerMask;
+    private RaycastHit stepHit;
+    private Vector3 lineStartPos;
+    private Vector3 lineEndPos;
+    private bool pushJump;
+    private bool isRightAngle;
+    private bool isCollision;
 
     // Start is called before the first frame update
     void Start()
     {
         anim = GetComponent<Animator>();
         rb = GetComponent<Rigidbody>();
-        layerMask = ~(1 << LayerMask.NameToLayer("Player"));
     }
 
     // Update is called once per frame
     void Update()
     {
-        horizontal = Input.GetAxisRaw("Horizontal");
-        vertical = Input.GetAxisRaw("Vertical");
+        input = new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical"));
 
-        if (isGrounded)
+        if (input.magnitude > 0 && groundChecker.isGrounded)
         {
-            velocity = Vector3.zero;
-            input = new Vector3(horizontal, 0f, vertical);
+            lineStartPos = transform.position + new Vector3(0, stepOffset, 0f);
+            lineEndPos = lineStartPos + transform.forward * slopeDistance;
+            Debug.DrawLine(lineStartPos, lineEndPos, Color.green);
 
-            //方向キーが推されている時
-            if (input.magnitude > 0)
+            //stepRayが坂や階段に接触しているか
+            Vector3 stepRayEndPos = stepRay.position + stepRay.forward * stepDistance;
+            if (Physics.Linecast(stepRay.position, stepRayEndPos, out stepHit, LayerMask.GetMask("Ground")))
             {
-                Vector3 lineStartPos = transform.position + new Vector3(0, stepOffset, 0);
-                Vector3 lineEndPos = lineStartPos + transform.forward * slopeDistance;
-                Debug.DrawLine(lineStartPos, lineEndPos, Color.green);
-
-                //ステップ用のRayが地面に接触
-                Vector3 start = stepRay.position;
-                Vector3 end = start + stepRay.forward * stepDistance;
-                if (Physics.Linecast(start, end, out RaycastHit stepHit, LayerMask.GetMask("Ground")))
+                Debug.DrawLine(stepRay.position, stepRayEndPos, Color.green);
+                Debug.Log("stepHit.normal.z " + stepHit.normal.z);
+                if (canGoStepOrSlope())
                 {
-                    Debug.DrawLine(start, end, Color.green);
-                    Debug.Log(stepHit.normal);
-                    //進行方向の地面の角度が指定以下、または登れる段差より下だった場合の移動処理
-                    if (Vector3.Angle(transform.up, stepHit.normal) <= slopeLimit
-                        || (Vector3.Angle(transform.up, stepHit.normal) > slopeLimit
-                        && !Physics.Linecast(lineStartPos, lineEndPos, LayerMask.GetMask("Ground"))))
+                    if (Mathf.Abs(stepHit.normal.z) > 0 && Mathf.Abs(stepHit.normal.z) < 1)
                     {
-                        velocity = new Vector3(0, (Quaternion.FromToRotation(Vector3.up, stepHit.normal) * transform.forward * walkSpeed).y, 0) + transform.forward * walkSpeed;
-                        Debug.Log(Vector3.Angle(transform.up, stepHit.normal));
+                        input = Vector3.ProjectOnPlane(input, stepHit.normal);
                     }
-                    else
+                    else if (stepHit.normal.z == 1)
                     {
-                        velocity += transform.forward * walkSpeed;
+                        isRightAngle = true;
                     }
-
-                    Debug.Log(Vector3.Angle(Vector3.up, stepHit.normal));
-                }
-                //地面に接触していない場合
-                else
-                {
-                    velocity += transform.forward * walkSpeed;
                 }
             }
-
-            //ジャンプ処理
-            if (Input.GetButtonDown("Jump"))
+            else
             {
-                isGrounded = false;
-                velocity.y += jumpPower;
+                isRightAngle = false;
             }
+        }
+        else
+        {
+            isRightAngle = false;
+        }
+
+        //回転方向を向く
+        if (input.magnitude > 0)
+        {
+            targetRotation = Quaternion.LookRotation(input, Vector3.up);
+        }
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed);
+
+        //ジャンプ処理
+        if (Input.GetButtonDown("Jump") && groundChecker.isGrounded)
+        {
+            pushJump = true;
         }
     }
 
     private void FixedUpdate()
     {
-        //キャラクターの移動をさせる処理
-        rb.MovePosition(transform.position + velocity * Time.fixedDeltaTime);
-        Vector3 moveForward = transform.forward * vertical + transform.right * horizontal;
-        velocity = moveForward * walkSpeed + new Vector3(0, velocity.y, 0);
+        Debug.Log(isCollision);
 
-        if (moveForward != Vector3.zero)
+        velocity = input.normalized * walkSpeed;
+        Debug.Log(velocity);
+        velocity -= rb.velocity;
+        velocity = new Vector3(Mathf.Clamp(velocity.x, -walkSpeed, walkSpeed), 0, Mathf.Clamp(velocity.z, -walkSpeed, walkSpeed));
+        rb.AddForce(rb.mass * velocity / Time.fixedDeltaTime, ForceMode.Force);
+
+        //階段上る
+        if (isRightAngle)
         {
-            transform.rotation = Quaternion.LookRotation(moveForward);
+            Debug.Log("直角");
+            rb.AddForce(rb.mass * Vector3.up * stepSmooth / Time.fixedDeltaTime, ForceMode.Force);
+        }
+
+        //ジャンプ実行
+        if (pushJump)
+        {
+            pushJump = false;
+            groundChecker.isGrounded = false;
+            rb.AddForce(Vector3.up * jumpPower, ForceMode.Impulse);
         }
     }
 
-    private void OnCollisionEnter(Collision collision)
+    private bool canGoStepOrSlope()
     {
-        if (Physics.CheckSphere(transform.position, colliderRadius, LayerMask.GetMask("Ground")))
+        if (Vector3.Angle(transform.up, stepHit.normal) <= slopeLimit)
         {
-            isGrounded = true;
-            velocity.y = 0;
+            return true;
         }
-    }
-
-    private void OnCollisionExit(Collision collision)
-    {
-        if (collision.gameObject.layer != LayerMask.GetMask("Ground"))
+        else if (!Physics.Linecast(lineStartPos, lineEndPos, LayerMask.GetMask("Ground")))
         {
-            isGrounded = false;
+            return true;
         }
+        return false;
     }
 }

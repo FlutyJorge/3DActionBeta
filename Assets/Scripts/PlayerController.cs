@@ -24,11 +24,8 @@ public class PlayerController : MonoBehaviour
     [SerializeField] float stepSmooth;
     [SerializeField] float rotationSpeed;
 
-    private float horizontal;
-    private float vertical;
     private Animator anim;
     private Vector3 velocity;
-    private Vector3 yVelocity;
     private Vector3 input;
     private Quaternion targetRotation;
     private Rigidbody rb;
@@ -37,19 +34,37 @@ public class PlayerController : MonoBehaviour
     private Vector3 lineEndPos;
     private bool pushJump;
     private bool isRightAngle;
-    private bool isCollision;
+    private bool isRunning = false;
+
+    private enum State
+    {
+        Idle, Walk, Run, Jump
+    }
+    private State state;
 
     // Start is called before the first frame update
     void Start()
     {
         anim = GetComponent<Animator>();
         rb = GetComponent<Rigidbody>();
+        state = State.Idle;
     }
 
     // Update is called once per frame
     void Update()
     {
         input = new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical"));
+
+        //ダッシュ判定
+        if (Input.GetKey(KeyCode.LeftShift))
+        {
+            isRunning = true;
+            Debug.Log("Run!!");
+        }
+        else
+        {
+            isRunning = false;
+        }
 
         if (input.magnitude > 0 && groundChecker.isGrounded)
         {
@@ -62,7 +77,7 @@ public class PlayerController : MonoBehaviour
             if (Physics.Linecast(stepRay.position, stepRayEndPos, out stepHit, LayerMask.GetMask("Ground")))
             {
                 Debug.DrawLine(stepRay.position, stepRayEndPos, Color.green);
-                Debug.Log("stepHit.normal.z " + stepHit.normal.z);
+
                 if (canGoStepOrSlope())
                 {
                     if (Mathf.Abs(stepHit.normal.z) > 0 && Mathf.Abs(stepHit.normal.z) < 1)
@@ -101,19 +116,76 @@ public class PlayerController : MonoBehaviour
 
     private void FixedUpdate()
     {
-        Debug.Log(isCollision);
-
-        velocity = input.normalized * walkSpeed;
-        Debug.Log(velocity);
-        velocity -= rb.velocity;
-        velocity = new Vector3(Mathf.Clamp(velocity.x, -walkSpeed, walkSpeed), 0, Mathf.Clamp(velocity.z, -walkSpeed, walkSpeed));
-        rb.AddForce(rb.mass * velocity / Time.fixedDeltaTime, ForceMode.Force);
-
-        //階段上る
-        if (isRightAngle)
+        switch (state)
         {
-            Debug.Log("直角");
-            rb.AddForce(rb.mass * Vector3.up * stepSmooth / Time.fixedDeltaTime, ForceMode.Force);
+            case State.Idle:
+
+                Move(walkSpeed);
+
+                if (input.magnitude >= 0.1f)
+                {
+                    anim.SetBool("isIdling", false);
+
+                    //Run移行
+                    if (isRunning)
+                    {
+                        anim.SetBool("isRunning", true);
+                        state = State.Run;
+                        break;
+                    }
+
+                    //Walk移行
+                    anim.SetBool("isWalking", true);
+                    state = State.Walk;
+                }
+                break;
+
+            case State.Walk:
+
+                Move(walkSpeed);
+
+                //Run移行
+                if (isRunning)
+                {
+                    anim.SetBool("isWalking", false);
+                    anim.SetBool("isRunning", true);
+                    state = State.Run;
+                    break;
+                }
+
+                //Idle移行
+                if (input.magnitude < 0.1f)
+                {
+                    anim.SetBool("isWalking", false);
+                    anim.SetBool("isIdling", true);
+                    state = State.Idle;
+                }
+                break;
+
+            case State.Run:
+
+                Move(runSpeed);
+
+                //Idle移行
+                if (input.magnitude < 0.1f)
+                {
+                    Debug.Log("アイドル移行");
+                    anim.SetBool("isRunning", false);
+                    anim.SetBool("isWalking", false);
+                    anim.SetBool("isIdling", true);
+                    state = State.Idle;
+                    break;
+                }
+
+                //Walk移行
+                if (!isRunning)
+                {
+                    Debug.Log("ウォーク移行");
+                    anim.SetBool("isRunning", false);
+                    anim.SetBool("isWalking", true);
+                    state = State.Walk;
+                }
+                break;
         }
 
         //ジャンプ実行
@@ -136,5 +208,20 @@ public class PlayerController : MonoBehaviour
             return true;
         }
         return false;
+    }
+
+    private void Move(float speed)
+    {
+        velocity = input.normalized * speed;
+        velocity -= rb.velocity;
+        velocity = new Vector3(Mathf.Clamp(velocity.x, -speed, speed), 0, Mathf.Clamp(velocity.z, -speed, speed));
+        rb.AddForce(rb.mass * velocity / Time.fixedDeltaTime, ForceMode.Force);
+
+        //階段上る
+        if (isRightAngle)
+        {
+            Debug.Log("直角");
+            rb.AddForce(rb.mass * Vector3.up * stepSmooth / Time.fixedDeltaTime, ForceMode.Force);
+        }
     }
 }
